@@ -1,0 +1,24 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>AST Generator</title>
+</head>
+<body>
+  <h2>Simple AST Generator</h2>
+
+  <textarea id="inputText" rows="6" placeholder="Enter text to generate AST..."></textarea><br>
+  <button id="generateAST">Generate AST</button>
+
+  <h3>Generated AST:</h3>
+  <pre id="astOutput">{}</pre>
+
+  <script src="AST.js"></script>
+  <script>
+    document.getElementById("generateAST").addEventListener("click", () => {
+      const input = document.getElementById("inputText").value;
+      const ast = generateAST(input);
+      document.getElementById("astOutput").textContent = JSON.stringify(ast, null, 2);
+    });
+  </script>
+</body>
+</html>
