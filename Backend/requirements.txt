@@ -3,3 +3,9 @@ pandas
 requests
 Django
 Flask
+jsonify
+flask_cors
+subprocess
+cparser
+scanner
+ir_to_armv8
