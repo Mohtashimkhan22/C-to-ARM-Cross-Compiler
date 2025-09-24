@@ -1,5 +1,5 @@
-numpy==1.26.0
-pandas>=2.0.0,<3.0.0
-requests~=2.31.0
-Django==4.2.7
+numpy
+pandas
+requests
+Django
 Flask
