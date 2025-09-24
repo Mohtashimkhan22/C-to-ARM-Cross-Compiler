@@ -32,7 +32,7 @@ This cross-compiler translates C code into ARM machine code, enabling developers
 - Virtual Environment (dependency isolation)
 
 ## Project Structure
-text
+``` text
 ├── Backend/
 │ ├── compiler.py 
 │ ├── modules/ 
@@ -47,7 +47,7 @@ text
 ├── .venv/ # Python virtual environment 
 ├── README.md # Project documentation 
 └── ...
-
+```
 
 ## Compilation Workflow
 1. Write or use existing C source files from the Backend/input/ directory.
@@ -60,7 +60,7 @@ text
 
 ### Clone Repo 
 bash
-  git clone <https://github.com/Mohtashimkhan22/C-to-Arm_Compiler.git>
+  git clone [<https://github.com/Mohtashimkhan22/C-to-Arm_Compiler.git>](https://github.com/Mohtashimkhan22/C-to-ARM-Cross-Compiler.git)
   cd project-root
 
 
