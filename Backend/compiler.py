@@ -4,6 +4,13 @@ import time
 import argparse
 import platform
 import subprocess as sp
+import tempfile
+import io
+import contextlib
+
+# Flask imports for API mode
+from flask import Flask, request, jsonify
+from flask_cors import CORS
 
 # Setup paths
 script_dir = os.path.dirname(os.path.abspath(__file__))
@@ -19,18 +26,20 @@ from ir_to_armv8 import main as genARM
 # Max virtual memory for program execution (in bytes)
 MAX_VIRTUAL_MEMORY = 50 * 1024 * 1024  # 50 MB
 
+
 def limit_virtual_memory():
     import resource
     resource.setrlimit(resource.RLIMIT_AS, (MAX_VIRTUAL_MEMORY, MAX_VIRTUAL_MEMORY))
 
-def compile(args):
-    flag_lex=False
-    flag_syn=False
-    flag_sem=False
+
+def compile_code(args):
+    flag_lex = False
+    flag_syn = False
+    flag_sem = False
     print("Compiling", args.source_file)
     SymbolTableManager.init()
     MemoryManager.init()
-    
+
     parser = Parser(args.source_file)
 
     start = time.time()
@@ -49,19 +58,19 @@ def compile(args):
         parser.save_syntax_errors()
         parser.scanner.save_lexical_errors()
         parser.semantic_analyzer.save_semantic_errors()
-    
+
     parser.code_generator.save_output()
 
     # Collect errors
     lexical_errors = parser.scanner.lexical_errors.strip()
     syntax_errors = parser.syntax_errors.strip()
     semantic_errors = parser.semantic_analyzer.semantic_errors.strip()
-    if lexical_errors!="There is no lexical errors.":
-        flag_lex=True
-    if syntax_errors!="There is no syntax error.":
-        flag_syn=True
-    if semantic_errors!="The input program is semantically correct.":
-        flag_sem=True
+    if lexical_errors != "There is no lexical errors.":
+        flag_lex = True
+    if syntax_errors != "There is no syntax error.":
+        flag_syn = True
+    if semantic_errors != "The input program is semantically correct.":
+        flag_sem = True
     has_errors = bool(flag_lex or flag_sem or flag_syn)
 
     if has_errors:
@@ -83,7 +92,7 @@ def compile(args):
                 f.write("Syntax Errors:\n" + syntax_errors + "\n\n")
             if semantic_errors:
                 f.write("Semantic Errors:\n" + semantic_errors + "\n")
-        return  # Do not proceed to code generation or execution
+        return
     else:
         print("Compilation successful!")
         genARM()
@@ -132,20 +141,74 @@ def compile(args):
             except sp.TimeoutExpired:
                 print("RuntimeError: Execution timed out!")
 
+
+# -------------------------------
+# Flask API setup
+# -------------------------------
+app = Flask(__name__)
+CORS(app, origins=["https://crosscompiler.netlify.app"])  # allow your frontend
+
+
+@app.route("/compiler", methods=["POST"])
+def api_compile():
+    try:
+        data = request.get_json()
+        code = data.get("code", "")
+
+        # Save code to temporary file
+        with tempfile.NamedTemporaryFile(delete=False, suffix=".c", mode="w") as tmp:
+            tmp.write(code)
+            tmp.flush()
+            source_path = tmp.name
+
+        # Args class for compatibility
+        class Args:
+            def __init__(self, source_file):
+                self.source_file = source_file
+                self.run = False
+                self.verbose = False
+                self.error_files = False
+                self.abstract_syntax_tree = False
+                self.symbol_table = False
+                self.tokens = False
+
+        args = Args(source_path)
+
+        # Capture stdout
+        output_stream = io.StringIO()
+        with contextlib.redirect_stdout(output_stream):
+            compile_code(args)
+        output = output_stream.getvalue()
+
+        os.remove(source_path)
+
+        return jsonify({"success": True, "output": output})
+
+    except Exception as e:
+        return jsonify({"success": False, "error": str(e)}), 500
+
+
+# -------------------------------
+# Entry point: CLI or Server
+# -------------------------------
 if __name__ == "__main__":
-    parser = argparse.ArgumentParser(description='Simple C Compiler written in Python')
-    parser.add_argument("source_file", help="Path to C source file.")
-    parser.add_argument('-r', '--run', action='store_true', help='Run the output program after compilation.')
-    parser.add_argument('-v', '--verbose', action='store_true', help='Print all used three address codes.')
-    parser.add_argument('-ef', '--error-files', action='store_true', help='Save compilation errors to text files.')
-    parser.add_argument('-ast', '--abstract-syntax-tree', action='store_true', help='Save abstract syntax tree into a text file.')
-    parser.add_argument('-st', '--symbol-table', action='store_true', help='Save symbol table into a text file.')
-    parser.add_argument('-t', '--tokens', action='store_true', help='Save lexed tokens into a text file.')
-    
-    args = parser.parse_args()
+    if len(sys.argv) > 1 and sys.argv[1].endswith(".c"):
+        parser = argparse.ArgumentParser(description="Simple C Compiler written in Python")
+        parser.add_argument("source_file", help="Path to C source file.")
+        parser.add_argument("-r", "--run", action="store_true", help="Run the output program after compilation.")
+        parser.add_argument("-v", "--verbose", action="store_true", help="Print all used three address codes.")
+        parser.add_argument("-ef", "--error-files", action="store_true", help="Save compilation errors to text files.")
+        parser.add_argument("-ast", "--abstract-syntax-tree", action="store_true", help="Save abstract syntax tree into a text file.")
+        parser.add_argument("-st", "--symbol-table", action="store_true", help="Save symbol table into a text file.")
+        parser.add_argument("-t", "--tokens", action="store_true", help="Save lexed tokens into a text file.")
 
-    # Fix: Convert to absolute path properly
-    if not os.path.isabs(args.source_file):
-        args.source_file = os.path.abspath(args.source_file)
+        args = parser.parse_args()
 
-    compile(args)
+        if not os.path.isabs(args.source_file):
+            args.source_file = os.path.abspath(args.source_file)
+
+        compile_code(args)
+    else:
+        # Run Flask server (Render will start here)
+        port = int(os.environ.get("PORT", 10000))
+        app.run(host="0.0.0.0", port=port)
