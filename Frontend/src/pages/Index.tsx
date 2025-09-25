@@ -134,7 +134,7 @@ const Index = () => {
     setWaitingForInput(false);
 
     try {
-      const response = await fetch('https://c-to-arm-cross-compiler-5.onrender.com/', {
+      const response = await fetch('https://c-to-arm-cross-compiler-5.onrender.com/compiler', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
